@@ -41,20 +41,6 @@ userconstruct=function(x,y)
   end
  end
 
- obj.crash=function(user,skeleton)
- for car in all(cars) do
-  if collide(user,car) then
-   sfx(00)
-   lives-=1
-   //add(splats,splatconstruct(user.pos.x,user.pos.y))
-   del(users,user)
-  end
-  end
- end
- 
- return obj
-end
-
 skeletonconstruct=function(x,y)
  local obj={}
  obj.pos={x=x,y=y}
