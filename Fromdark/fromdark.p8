@@ -66,7 +66,7 @@ end
 -- 60 fps
 
 -- globals for update
-
+score = 0
 -- test
 
 test = false
@@ -118,6 +118,7 @@ function _update60()
 	elseif(scene == "combat") then
 		combat_controls() 
 	elseif(scene == "end_idle") then
+		clear_map()
 		end_controls()
 	end
 
@@ -133,26 +134,25 @@ end -- end title_controls()
 
 -- main character controls
 function game_controls()
-
+ -- determine collisions
+ collide()
  -- cam
  camx = player.pos.x
  camy = player.pos.y
  camera(camx-64, camy-64)
  
- -- testing
- --for i=1, #solids_o do
- -- mycollide(player, solids_o[i])
- --end
- 
  -- darkness consumption
  consumed()
-
- -- buttons for prototype
+ 
+ -- buttons
  if(btnp(🅾️,0)) then
-  if(room_max < #floor) then
+  if(room_max <= #floor) then
+   if(fget(to_top, 2) and
+    room_max == 4)then
+    scene = "end_idle"
+   elseif(fget(to_top, 2))then
    room_max += 1
    opn_door()
-   draw_game()
    delay(80)
    -- found door, start combat
    camx_old = camx
@@ -161,38 +161,53 @@ function game_controls()
    camy = 0
    camera(camx, camy)
    set_enemies()
-   
+   draw_game()
    scene = "combat"
    
    trigger = false
+   end
   end
  end
  if(btnp(❎,0)) then
-  room_max = 1
-  floorgen()
-  player.pos = {x=0,y=-16}
+  destroy()
  end
  if(btn(⬆️,0)) then
   player.move = true
-  player.pos.y-=player.speed
+  if(fl_top == false) then
+   player.pos.y-=player.speed
+  else
+   player.pos.y=player.pos.y
+  end
   player.anim = 56
   player.fram = 2
   player.flip = false
  elseif(btn(⬇️,0)) then
   player.move = true
-  player.pos.y+=player.speed
+  if(fl_bot == false) then
+   player.pos.y+=player.speed
+  else
+   player.pos.y=player.pos.y
+  end
   player.anim = 58
   player.fram = 2
   player.flip = false
  elseif(btn(➡️,0)) then
   player.move = true
-  player.pos.x+=player.speed
+  if(fl_right == false) then
+   player.pos.x+=player.speed
+  else
+   player.pos.x=player.pos.x
+  end
   player.anim = 54
   player.fram = 2
   player.flip = true
  elseif(btn(⬅️,0)) then
   player.move = true
-  player.pos.x-=player.speed
+  if(fl_left == false) then
+   player.pos.x-=player.speed
+  else
+   player.pos.x=player.pos.x
+  end
   player.anim = 54
   player.fram = 2
   player.flip = false
@@ -284,12 +299,13 @@ end -- end move_cursor_v()
 
 function end_controls()
  if(btnp(🅾️,0) or
-    btnp(❎,0) then
+    btnp(❎,0)) then
  
   -- reset
   dark_line = 0
   floorgen()
-  player.pos={x=0,y=-16}
+  player.pos={x=(mapx*8),
+              y=(mapy*8)-25}
   room_max = 1
   trigger = false
   scene = "title"
@@ -302,10 +318,10 @@ end
 -------------------------------
 
 -- globals for draw
+mapx = 48
+mapy = 32
 
--- start line for darkness
-dark_line = 0
-
+col_obj = {}
 -- initial horizontal cursor values
 cursor_h = {
     x=12,
@@ -357,17 +373,13 @@ end
 
 function draw_game()
 	cls()
-	
- -- testing help 
- print("~~prototype contorls~~",
-       -32, 8)
- print("press ❎ for new floor",
-       -32, 16)
- print("press 🅾️ for next room",
-       -32, 24)
- print("⬅️ ⬆️ ⬇️ ➡️ for camera",
-       -32, 32)
-       
+      
+ -- draw coords
+ --print((camx/8), camx,
+ --					 camy-16)
+ --print((camy/8), camx,
+ --      camy-8)
+ 
  -- draw floor
  draw_floor()
  
@@ -388,22 +400,33 @@ end
 function draw_room(matx, x, y) 
  j = 0
  i = 0
+ temp = false
  for k=1, #matx.r do
   -- if top layer, draw opaque
-  if(matx.r[k] == 1 or
-     matx.r[k] == 2 or
-     matx.r[k] == 3 or
-     matx.r[k] == 7) then
-   palt(0, false)
-  end
-  
+  --if(matx.r[k] == 1 or
+  --   matx.r[k] == 2 or
+  --   matx.r[k] == 3 or
+  --   matx.r[k] == 7 or
+  --   matx.r[k] == 18) then
+  -- palt(0, false)
+  --end
   -- dont draw under the
   -- darkness line
   if(y+j*8 < dark_line) then
 	  -- draw room objects
-	  spr(matx.o[k], x+i*8, y+j*8)
+	  --spr(matx.o[k], x+i*8, y+j*8)
 	  -- draw room tiles
-	  spr(matx.r[k], x+i*8, y+j*8)
+	  --spr(matx.r[k], x+i*8, y+j*8)
+	  -- draw room tiles
+	   mset(mapx+(x/8)+i,
+	        mapy+(y/8)+j,
+	        matx.r[k])
+	   --mset(8+(x/8)+i, 24+(y/8)+j,
+	   --    matx.o[k])
+	   spr(matx.o[k],
+	      (mapx*8)+x+i*8,
+	      (mapy*8)+y+j*8)
+	      
   end
   -- reset draw transparency
   palt()
@@ -420,6 +443,7 @@ end -- end draw_room()
 
 -- draw the whole discovered floor
 function draw_floor()
+ map()
  for i=room_max, 1, -1 do 
   draw_room(floor[i],
          floor.coord_x[i], 
@@ -430,7 +454,7 @@ end -- end draw_floor()
 -- draw door open "animation",
 -- needs improvement!
 function opn_door()
- floor[room_max-1].r[floor[room_max-1].tpdr+1] = 0
+ floor[room_max-1].r[floor[room_max-1].tpdr+1] = 18
 end
 
 function draw_combat()
@@ -527,12 +551,25 @@ function draw_attempts()
 	
 end
 
-
 function draw_end()
 	cls()
+	print("score", camx-10, camy-16)
+	if(score >= 100) then
+	 print(score, camx-7, camy-8)
+	else
+	 print(score, camx-4, camy-8)
+	end
 	print("gameover", camx-16, camy)
 	print("press 🅾️ or ❎ to restart",
 	      camx-48, camy+10)
+end
+
+function clear_map()
+ for i=16, 128 do
+  for j=0, 128 do
+   mset(i, j, 0)
+  end
+ end
 end
 
 -->8
@@ -544,7 +581,7 @@ function floorgen()
 
  -- floor collection
  floor = {}
- local floornum = 5
+ local floornum = 4
  floor.coord_x = {}
  floor.coord_y = {}
  
@@ -560,7 +597,7 @@ function floorgen()
  for i=1, floornum do 
   -- set start position
   strt_x -= (floor[i].btdr*8) 
-  strt_y -= (floor[i].h-1)*8
+  strt_y -= (floor[i].h)*8
   -- set point
   add(floor.coord_x, strt_x)
   add(floor.coord_y, strt_y)  
@@ -582,40 +619,16 @@ function floorgen()
   end
  end
  
- -- determine solids
- go_floor()
- 
-end -- floorgen()
-
--- go through room
-function go_floor()
- for i=1, 5 do 
-  go_room(floor[i],
-          floor.coord_x[i], 
-          floor.coord_y[i])
- end
-end -- end draw_floor()
-
--- go through a room
-function go_room(matx, x, y) 
- j = 0
- i = 0
- for k=1, #matx.o do
-  -- interactable objects
-	 gen_solids("obj", matx.o[k],
-	 										 x+i*8, y+j*8)
-	 -- not interactable objects
-  gen_solids("bound", matx.r[k],
-             x+i*8, y+j*8)
-  -- loop variables
-  i += 1
-  if(i%matx.w == 0) then
-   j += 1
-   i = 0
+ -- remove bottom door
+ -- from first room in floor
+ for i=1, #floor[4].r do 
+  if(floor[4].r[i] == 7) then
+   floor[4].r[i] = 20
   end
  end
  
-end -- end draw_room()
+ 
+end -- floorgen()
 
 -->8
 -------------------------------
@@ -1246,9 +1259,37 @@ function roomfill()
    else
     add(obj, 50)
    end
+   
+   -- set flag
+	  if(room.r[i] == 4) then
+	   room.r[i] = 22
+	  end
+	  if(room.r[i] == 5) then
+	   room.r[i] = 23
+	  end
+	  if(room.r[i] == 6) then
+	   room.r[i] = 24
+	  end
+	  if(room.r[i] == 8) then
+	   room.r[i] = 25
+	  end
+	  if(room.r[i] == 9) then
+	   room.r[i] = 26
+	  end
+	  if(room.r[i] == 10) then
+	   room.r[i] = 27
+	  end
+	  if(room.r[i] == 14) then
+	   room.r[i] = 28
+	  end
+	  if(room.r[i] == 15) then
+	   room.r[i] = 29
+	  end
+	  
   else
    add(obj, 0)
   end
+  
  end
  
 end -- end roomfill()
@@ -1260,6 +1301,9 @@ end -- end roomfill()
 
 
 -- globals for creepdark
+-- start line for darkness
+dark_line = 0
+
 t = 0
 crp_flip = false
 spr_off = 0
@@ -1270,18 +1314,32 @@ function creepdark()
  if(t == 0) then
   crp_flip = not crp_flip
   spr_off = flr(rnd(2))
-  dark_line -= 2
+  dark_line -= 5
  end
  for i=0, 16 do
   ch = i % 2
 	 --palt(0, false)
 	 -- draw creeping darkness
-	 spr(32+(ch + spr_off),
-	     (camx-64)+i*8, dark_line,
+	 spr(32+(ch+spr_off),
+	     (camx-64)+i*8,
+	     (mapy*8)+dark_line-8,
 	     1, 1, crp_flip)
-	 spr(32+(ch + spr_off),
-	     (camx-64)+i*8, dark_line-8,
+	 spr(35+(ch+spr_off),
+	     (camx-64)+i*8, 
+	     (mapy*8)+dark_line,
 	     1, 1, crp_flip)
+	 for j=1, 8 do
+	  spr(38+(ch+spr_off),
+	     (camx-64)+i*8, 
+	     (mapy*8)+dark_line+j*8,
+	     1, 1, crp_flip)
+	 end
+	 for j=4, 8 do
+	  spr(39+(ch+spr_off),
+	     (camx-64)+i*8, 
+	     (mapy*8)+dark_line+j*8,
+	     1, 1, crp_flip)
+	 end
 	    
 	 --palt()
 	 -- possible option
@@ -1340,7 +1398,8 @@ end
 -- player object
 player = {}
 player.move = false
-player.pos={x=0,y=-16}
+player.pos={x=(mapx*8),
+            y=(mapy*8)-25}
 player.hitbox = {x=1,y=0,w=7,h=8}
 player.speed= 1
 player.anim = 54
@@ -1350,7 +1409,7 @@ player.flip = false
 -- animate user
 -- object, start frame,
 -- num frames, speed, flip
-function animp(m,o,sf,nf,sp,fl)
+function animp(m,o,sf,nf,sp,fl,a)
 	
 	-- if moving
 	if(m == true) then
@@ -1385,80 +1444,84 @@ end -- animp
 -------------------------------
 
 -- collision globals
-
-solids_o = {}
-solids_o.pos = {x, y}
-solids_o.hitbox = {x, y, w, h}
-solids_r = {}
-solids_r.pos = {x, y}
-solids_r.hitbox = {x, y, w, h}
+ret_val = false
 
 -- collision with creeping darkness
 function consumed()
- if(player.pos.y > dark_line) then
+ if(player.pos.y > 
+    (mapy*8)+dark_line) then
   scene = "end_idle"
  end
 end
 
 -- collision
-function collide(obj,other)
- if(other.pos.x+other.hitbox.x+other.hitbox.w > obj.pos.x+obj.hitbox.x and 
-    other.pos.y+other.hitbox.y+other.hitbox.h > obj.pos.y+obj.hitbox.y and
-    other.pos.x+other.hitbox.x < obj.pos.x+obj.hitbox.x+obj.hitbox.w and
-    other.pos.y+other.hitbox.y < obj.pos.y+obj.hitbox.y+obj.hitbox.h) then
-  return true
- end
-end
-
-
--- testing function
-function mycollide(obj, other)
- --if(other.pos.x < obj.pos.x) then
- -- return true
- --end
- if(obj.pos.x <= -80) then
-  test = true
- else
-  test = false
- end
-end
-
-
--- debugging function
-function help()
-  -- collision detection
- if(test == true) then
-  print("true", camx, camy-40)
- else
-  print("false", camx, camy-60)
- end
-end
-
--- gen solid objects array
-function gen_solids(typ,til,
-																			 x, y)
-
- -- add to interactable objects
- if(typ == "obj") then
-  if(til != 0) then
-   add(solids_o.pos, {x=x, y=y})
-   add(solids_o.hitbox, {x=0,
-   												y=0, w=8, h=8})
-  end
- -- add walls
- elseif(typ == "bound") then
-  if(til == 0 or
-     til == 11 or
-     til == 12 or
-     til == 13) then
-   add(solids_r.pos, {x=x, y=y})
-   add(solids_r.hitbox, {x=0,
-   												y=0, w=8, h=8})
-  end
-end
+function collide()
+ to_right=mget(camx/8+0.5+0.8, camy/8+0.5)
+ to_left=mget(camx/8+0.5-0.8, camy/8+0.5)
+ to_top=mget(camx/8+0.5, camy/8+0.5-0.8)
+ to_bot=mget(camx/8+0.5, camy/8+0.5+0.8)
+ 
+ fl_right=fget(to_right,0)
+ fl_left=fget(to_left,0)
+ fl_top=fget(to_top,0)
+ fl_bot=fget(to_bot,0)
  
 end
 
+function destroy()
+ if(fget(to_right,1) or
+    fget(to_left,1) or
+    fget(to_top,1) or
+    fget(to_bot,1)) then
+  mset(camx/8+0.5+0.8,
+       camy/8+0.5, 51)
+  mset(camx/8+0.5-0.8,
+       camy/8+0.5, 51)
+  mset(camx/8+0.5,
+       camy/8+0.5-0.8, 51)
+  mset(camx/8+0.5,
+       camy/8+0.5+0.8, 51)
+               
+  -- clear objects in room
+  for i=1, #floor[room_max].o do 
+   if(floor[room_max].o[i] == 48 or
+      floor[room_max].o[i] == 49 or
+      floor[room_max].o[i] == 50) then
+    floor[room_max].o[i] = 0
+    score += 10
+   end
+  end
+  
+  for i=1, #floor[room_max].r do 
+   if(floor[room_max].r[i]==22) then
+    floor[room_max].r[i] = 4
+   end
+   if(floor[room_max].r[i]==23) then
+    floor[room_max].r[i] = 5
+   end
+   if(floor[room_max].r[i]==24) then
+    floor[room_max].r[i] = 6
+   end
+   if(floor[room_max].r[i]==25) then
+    floor[room_max].r[i] = 8
+   end
+   if(floor[room_max].r[i]==26) then
+    floor[room_max].r[i] = 9
+   end
+   if(floor[room_max].r[i]==27) then
+    floor[room_max].r[i] = 10
+   end
+   if(floor[room_max].r[i]==28) then
+    floor[room_max].r[i] = 14
+   end
+   if(floor[room_max].r[i]==29) then
+    floor[room_max].r[i] = 15
+   end
+  end
+  
+ end     
+ 
+end
 __gfx__
 00000000007777777777777777777500700000500500000005000075777777777000005005000000050000755050050000500050000005057500000505005077
 00000000075005000500050005000750700000000000000000000075066666607000000000000000000000755050050000500000005000055000000000000050
@@ -1468,30 +1531,30 @@ __gfx__
 00000000750005000500050005000575700000000000005000000075060000607000000000000000000000755000500005005000000500055000000050000050
 00000000750005000500050005000575570000500000000000000755060000607000000000000000000000750500000005000000500000505000000000000050
 00000000755555555555555555555575507777777777777777777505566666657005000000005000000050750055555555555555555555005050000000050055
-05000005050000006500000600000000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000506500000600655600006666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006500000605666650006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006500000650600605006666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000050000000006500000650666605006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006500000605600650006666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006500000600555500006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-75005000000500776500000600000000556556550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00100000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-01001000001000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-01000010000100100000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000010000100010010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-10000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000100000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000060000600000000000000000000555500000000000055550000000000005555000000000000000000000000000000000000000000
-00666000066666000066600005060506006666000000000005ffff5000555500055555500055550005ffff500055550000000000000000000000000000000000
-060006000600060006000600006000600600006000000000053f3f5005ffff500555555005555550053ff35005ffff5000000000000000000000000000000000
-06666600066666000660660006600000066066600000000005fff55a053f3f5005a559500555555005ffff50053ff35000000000000000000000000000000000
-06000600060066000606060006006056060606000000000000555d1005fff51a015a951005a559500155551005ffff5000000000000000000000000000000000
-060006000606060006000600005060600600060000000000001ddd1000555d1001d9ad10065aa51001d55d100155557000000000000000000000000000000000
-006660000666660006666600060606000666660000000000006222600002262006922a6000922a00062222600022220000000000000000000000000000000000
-00000000000000000000000060000050000000000000000000050500000055000050050000055000005005000005500000000000000000000000000000000000
+05000005050000006500000600000000777007770000000070000050050000000500007570000050050000000500007575000005050050770000000000000000
+00000000000000506500000600655600006666000000000070000000000000000000007570000000000000000000007550000000000000500000000000000000
+00000000000000006500000605666650006006000000000070000000000000000000007570000000000000000000007550000000000000500000000000000000
+00000000000000006500000650600605006666000000000070000000000000000000007570000000000000500000007550000000000000500000000000000000
+00000050000000006500000650666605006006000000000070000000000000005000007570000000000000005000007550000050000000500000000000000000
+00000000000000006500000605600650006666000000000070000000000000500000007570000000000000000000007550000000500000500000000000000000
+00000000000000006500000600555500006006000000000057000050000000000000075570000000000000000000007550000000000000500000000000000000
+75005000000500776500000600000000556556550000000050777777777777777777750570050000000050000000507550500000000500550000000000000000
+00100000000001000000000000000000000000000001000000010100011100000001110001111110000000000000000000000000000000000000000000000000
+01001000001000100000000010000001000100000001000010110101101101011111000111110111000000000000000000000000000000000000000000000000
+01000010000100100000001010001011100000100000001010101111111111111011101110111111000000000000000000000000000000000000000000000000
+00000010000100010010000011101001101000011010000011101001111111111110111111111111000000000000000000000000000000000000000000000000
+00000000000000000000000001001000000010011000100101001001011010111111100111111111000000000000000000000000000000000000000000000000
+10000000000000100000000000011110010010011000001010011111111111111001111111011111000000000000000000000000000000000000000000000000
+00000100000000000100000001010010010110100101001011010011111111101111111011111111000000000000000000000000000000000000000000000000
+00000000100000000000000000000010010100100001010110110010101110100110111011101111000000000000000000000000000000000000000000000000
+0000000000000000000000006000060000000000000000000055550000000000005555000000000000555500000000000000000000000cccc000000cccc00000
+00666000066666000066600005060506006666000000000005ffff5000555500055555500055550005ffff500055550000000000000ccc70c700007c07ccc000
+060006000600060006000600006000600600006000000000053f3f5005ffff500555555005555550053ff35005ffff5000cccc0000cc7700cc7007cc0077cc00
+06666600066666000660660006600000066066600000000005fff55a053f3f5005a559500555555005ffff50053ff3500cc77cc000c700000c7007c000007c00
+06000600060066000606060006006056060606000000000000555d1005fff51a015a951005a559500155551005ffff500c7007c000c700000cc77cc000007c00
+060006000606060006000600005060600600060000000000001ddd1000555d1001d9ad10065aa51001d55d1001555570cc7007cc00cc770000cccc000077cc00
+006660000666660006666600060606000666660000000000006222600002262006922a6000922a000622226000222200c700007c000ccc700000000007ccc000
+000000000000000000000000600000500000000000000000000505000000550000500500000550000050050000055000c000000c00000ccc00000000ccc00000
 0000000070000000000000007000000000000007777777777777777700000007777777770a00000000000000000080000000000000009000000000000000a000
 0000000070000000000000007000000000000007000000077000000000000007000000000a0000000000000000088800888000000009990099900000000aaa00
 0000000070000000000000007000000000000007000000077000000000000007000000000a0000000000000000088800088880000009990009999000000aaa00
@@ -1638,6 +1701,9 @@ __label__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
+__gff__
+0101010100000005000000010101000000000000050003030303030303030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0049464848484848484848484848450000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
